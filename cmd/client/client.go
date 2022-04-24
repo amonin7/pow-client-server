@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	fmt.Println("Starting tpc client")
+	fmt.Println("Starting tcp client")
 
 	serverHost := os.Getenv("SERVER_HOST")
 	serverPort := os.Getenv("SERVER_PORT")

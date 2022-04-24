@@ -1,9 +1,11 @@
 package server
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"net"
+	"pow-client-server/internal/pkg/processor"
 )
 
 type server struct {
@@ -40,11 +42,33 @@ func (srv *server) Listen() error {
 			return fmt.Errorf("connection accept error: %w", err)
 		}
 		// Handle connections in a new goroutine.
-		go handleConn(*srv.ctx, conn)
+		go handleClientConn(*srv.ctx, conn)
 	}
 }
 
-func handleConn(ctx context.Context, conn net.Conn) {
-	fmt.Println("new client:", conn.RemoteAddr())
+func handleClientConn(ctx context.Context, conn net.Conn) {
+	fmt.Println("Established new client:", conn.RemoteAddr())
 	defer conn.Close()
+
+	connectionReader := bufio.NewReader(conn)
+	for {
+		clientRequest, err := connectionReader.ReadString('\n')
+		if err != nil {
+			fmt.Printf("handled error while reading connection buffer - %s\n", err)
+			return
+		}
+		msg, err := processor.Process(clientRequest, conn.RemoteAddr().String())
+		if err != nil {
+			fmt.Println("err process request:", err)
+			return
+		}
+		if msg != nil {
+			msgStr := fmt.Sprintf("%s\n", msg.Serialize())
+			_, err := conn.Write([]byte(msgStr))
+			if err != nil {
+				fmt.Println("err send message:", err)
+			}
+		}
+	}
+
 }
