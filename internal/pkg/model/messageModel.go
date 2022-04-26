@@ -1,9 +1,8 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
-	"strconv"
-	"strings"
 )
 
 // Represents the messageType
@@ -18,33 +17,28 @@ const (
 	ResourceRes = 4
 )
 
-// Message - message struct for both server and client
+// Message - structure of the message, which client and server are exchanged with.
 type Message struct {
-	Header  int    //type of message
-	Payload string //payload, could be json, quote or be empty
+	//Represents the messageType, described above
+	Header  int    `json:"header"`
+	Payload string `json:"payload"`
 }
 
-// DeserializeMessage - parses Message from str, checks header and payload
-func DeserializeMessage(str string) (*Message, error) {
-	//str = strings.TrimSpace(str)
-	var msgType int
-	// message has view as 1|payload (payload is optional)
-	parts := strings.Split(str, "|")
-	if len(parts) < 1 || len(parts) > 2 { //only 1 or 2 parts allowed
-		return nil, fmt.Errorf("message doesn't match protocol")
-	}
-	// try to parse header
-	msgType, err := strconv.Atoi(parts[0])
+// DeserializeMessage - deserializes Message from the array of bytes
+func DeserializeMessage(serializedMessage string) (*Message, error) {
+	var message Message
+	err := json.Unmarshal([]byte(serializedMessage), &message)
 	if err != nil {
-		return nil, fmt.Errorf("cannot parse header")
+		return nil, fmt.Errorf("cannot parse message")
 	}
-	msg := Message{
-		Header:  msgType,
-		Payload: parts[1],
-	}
-	return &msg, nil
+	return &message, nil
 }
 
-func (m *Message) Serialize() string {
-	return fmt.Sprintf("%d|%s", m.Header, m.Payload)
+// Serialize - serializes Message to the array of bytes
+func (m *Message) Serialize() ([]byte, error) {
+	str, err := json.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("cannot serialize message")
+	}
+	return str, nil
 }
