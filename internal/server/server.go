@@ -2,31 +2,32 @@ package server
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"net"
 	"pow-client-server/internal/pkg/processor"
 )
 
+// server - structure that represents the server side
 type server struct {
 	listener *net.Listener
-	ctx      *context.Context
 }
 
-func NewServer(serverUrl string, ctx context.Context) *server {
+// NewServer - generates new instance of server by the provided url
+func NewServer(serverUrl string) *server {
 	listener, err := net.Listen("tcp", serverUrl)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("Established connection to server{%s}\n", serverUrl)
+	fmt.Printf("Successfully created the server - message listener on url: %s\n", serverUrl)
 	return &server{
 		listener: &listener,
-		ctx:      &ctx,
 	}
 }
 
+// Listen - starts listening to clients and processing their messages
 func (srv *server) Listen() error {
+	// defer the connection close
 	defer func(listener net.Listener) {
 		err := listener.Close()
 		if err != nil {
@@ -36,38 +37,44 @@ func (srv *server) Listen() error {
 
 	fmt.Printf("Started listening to address{%s}\n", (*srv.listener).Addr())
 	for {
-		// Listen for an incoming connection.
 		conn, err := (*srv.listener).Accept()
 		if err != nil {
-			return fmt.Errorf("connection accept error: %w", err)
+			return fmt.Errorf("failed to accept connection: %w", err)
 		}
-		// Handle connections in a new goroutine.
-		go handleClientConn(*srv.ctx, conn)
+		go handleClientConn(conn)
 	}
 }
 
-func handleClientConn(ctx context.Context, conn net.Conn) {
-	fmt.Println("Established new client:", conn.RemoteAddr())
-	defer conn.Close()
-
+// handleClientConn - processes each connection separately
+// Algorithm of handling client connection
+// 1. read the incoming message from the client
+// 2. try to process it with special request processor
+// 3. send the response for the client request (if processing was successful)
+func handleClientConn(conn net.Conn) {
+	fmt.Printf("Established new client: %s\n", conn.RemoteAddr())
 	connectionReader := bufio.NewReader(conn)
 	for {
+		// step 1
 		clientRequest, err := connectionReader.ReadString('\n')
 		if err != nil {
-			fmt.Printf("handled error while reading connection buffer - %s\n", err)
+			fmt.Printf("failed to read the request from the connection - %s\n", err)
 			return
 		}
-		msg, err := processor.Process(clientRequest, conn.RemoteAddr().String())
+		// step 2
+		message, err := processor.Process(clientRequest, conn.RemoteAddr().String())
+		if err != nil || message == nil {
+			fmt.Printf("failed to process incoming message: %s\n", err)
+			return
+		}
+		// step 3
+		serialized, err := message.Serialize()
 		if err != nil {
-			fmt.Println("err process request:", err)
+			fmt.Printf("failed to serialize message: %s\n", err)
 			return
 		}
-		if msg != nil {
-			msgStr := fmt.Sprintf("%s\n", msg.Serialize())
-			_, err := conn.Write([]byte(msgStr))
-			if err != nil {
-				fmt.Println("err send message:", err)
-			}
+		_, err = conn.Write(append(serialized, byte('\n')))
+		if err != nil {
+			fmt.Printf("failed to send message back to client: %s\n", err)
 		}
 	}
 

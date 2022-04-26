@@ -2,7 +2,6 @@ package client
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,12 +11,13 @@ import (
 	"time"
 )
 
+// client - structure that represents client
 type client struct {
 	conn *net.Conn
-	ctx  *context.Context
 }
 
-func NewClient(serverUrl string, ctx context.Context) *client {
+// NewClient - creates new client from the provided server url
+func NewClient(serverUrl string) *client {
 	conn, err := net.Dial("tcp", serverUrl)
 	if err != nil {
 		panic(err)
@@ -26,10 +26,10 @@ func NewClient(serverUrl string, ctx context.Context) *client {
 	fmt.Printf("Established connection to server{%s}\n", serverUrl)
 	return &client{
 		conn: &conn,
-		ctx:  &ctx,
 	}
 }
 
+// Execute - start executing requests to server
 func (cli *client) Execute() error {
 	defer func(conn net.Conn) {
 		err := conn.Close()
@@ -43,70 +43,82 @@ func (cli *client) Execute() error {
 		if err != nil {
 			return err
 		}
-		fmt.Println("quote result:", message)
-		time.Sleep(5 * time.Second)
+		fmt.Printf("Word of wisdom string received from server: %s\n", message)
+		// some time threshold to pause the algorithm
+		time.Sleep(10 * time.Second)
 	}
 }
 
-func SinglePoWAlgoExecution(readerConn io.Reader, writerConn io.Writer) (string, error) {
-	reader := bufio.NewReader(readerConn)
+// SinglePoWAlgoExecution - function to execute one cycle of Proof of Work algorithm from the client side
+// Algorithm:
+//	1. send request for challenge
+//	2. receive the challenge
+//	3. calculate the proof for the challenge
+//	4. send it back to server with the request for resource
+//	5. receive the resource from server
+func SinglePoWAlgoExecution(rConnection io.Reader, wConnection io.Writer) (string, error) {
+	reader := bufio.NewReader(rConnection)
 
+	// step 1 send request for challenge
 	message := &model.Message{
 		Header: model.ChallengeReq,
 	}
-	msgStr := fmt.Sprintf("%s\n", message.Serialize())
-	_, err := writerConn.Write([]byte(msgStr))
+	serialized, err := message.Serialize()
 	if err != nil {
-		return "", fmt.Errorf("err send request: %w", err)
+		return "", err
+	}
+	_, err = wConnection.Write(append(serialized, byte('\n')))
+	if err != nil {
+		return "", fmt.Errorf("failed to send request for challenge to the server: %w", err)
 	}
 
-	// reading and parsing response
-	msgStr, err = reader.ReadString('\n')
+	// step 2 receive the challenge
+	serializedMessage, err := reader.ReadString('\n')
 	if err != nil {
-		return "", fmt.Errorf("err read msg: %w", err)
+		return "", fmt.Errorf("failed to read message from connection: %w", err)
 	}
-	message, err = model.DeserializeMessage(msgStr)
+	message, err = model.DeserializeMessage(serializedMessage)
 	if err != nil {
-		return "", fmt.Errorf("err parse msg: %w", err)
+		return "", fmt.Errorf("failed to deserialize message: %w", err)
 	}
-	var integerSquareRootModulo isrm.IntegerSquareRootModulo
-	err = json.Unmarshal([]byte(message.Payload), &integerSquareRootModulo)
+	integerSquareRootModulo, err := isrm.DeserializeIsrm(message.Payload)
 	if err != nil {
-		return "", fmt.Errorf("err parse hashcash: %w", err)
+		return "", fmt.Errorf("failed to deserialize challenge: %w", err)
 	}
-	fmt.Println("got hashcash:", integerSquareRootModulo.Serialize())
+	fmt.Printf("received challenge from the server: %s\n", integerSquareRootModulo.ToShortString())
 
-	// 2. got challenge, compute hashcash
+	// step 3 calculate the proof for the challenge
 	err = integerSquareRootModulo.FindSolution()
-	println(integerSquareRootModulo.Proof)
 	if err != nil {
 		return "", fmt.Errorf("err compute hashcash: %w", err)
 	}
 	fmt.Println("proof found: ", integerSquareRootModulo.Proof)
-	// marshal solution to json
 	byteData, err := json.Marshal(integerSquareRootModulo)
 	if err != nil {
 		return "", fmt.Errorf("err marshal hashcash: %w", err)
 	}
 
-	// 3. send challenge solution back to server
+	// step 4 send challenge back to server with the request for resource
 	message = &model.Message{
 		Header:  model.ResourceReq,
 		Payload: string(byteData),
 	}
-	msgStr = fmt.Sprintf("%s\n", message.Serialize())
-	_, err = writerConn.Write([]byte(msgStr))
+	serialized, err = message.Serialize()
 	if err != nil {
-		return "", fmt.Errorf("err send request: %w", err)
+		return "", fmt.Errorf("failed to serialize message, which should be sent to the server: %w", err)
 	}
-	fmt.Println("challenge sent to server")
+	_, err = wConnection.Write(append(serialized, byte('\n')))
+	if err != nil {
+		return "", fmt.Errorf("failed to send the request for resource: %w", err)
+	}
+	fmt.Println("challenge was successfully sent to server")
 
-	// 4. get result quote from server
-	msgStr, err = reader.ReadString('\n')
+	//	step 5 receive the resource from server
+	serializedMessage, err = reader.ReadString('\n')
 	if err != nil {
 		return "", fmt.Errorf("err read msg: %w", err)
 	}
-	message, err = model.DeserializeMessage(msgStr)
+	message, err = model.DeserializeMessage(serializedMessage)
 	if err != nil {
 		return "", fmt.Errorf("err parse msg: %w", err)
 	}
