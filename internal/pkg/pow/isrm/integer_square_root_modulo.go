@@ -10,6 +10,7 @@ import (
 // IntegerSquareRootModulo - SquareRootModulo implementation of PoW interface
 // this means that to proof the work the client needs to calculate such number n
 // 	that n * n = QuadResidue mod Modulo
+// https://en.wikipedia.org/wiki/Quadratic_residue#Complexity_of_finding_square_roots
 type IntegerSquareRootModulo struct {
 	Proof       int
 	QuadResidue int
