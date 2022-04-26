@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"pow-client-server/internal/server"
@@ -12,11 +11,10 @@ func main() {
 
 	serverHost := os.Getenv("SERVER_HOST")
 	serverPort := os.Getenv("SERVER_PORT")
-	ctx := context.Background()
 
 	serverUrl := serverHost + ":" + serverPort
 
-	srv := server.NewServer(serverUrl, ctx)
+	srv := server.NewServer(serverUrl)
 	err := srv.Listen()
 	if err != nil {
 		panic(err)
