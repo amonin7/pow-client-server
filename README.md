@@ -47,7 +47,7 @@ client_1  | Word of wisdom string received from server: Discipline is wisdom and
 #### 1. Below you could find the schema of the architecture of the developed service.
    ![alt text](https://upload.wikimedia.org/wikipedia/commons/5/55/Proof_of_Work_challenge_response.svg)
 
-#### 2. I've chosen the [Quadratic Residue Modulo](https://en.wikipedia.org/wiki/Quadratic_residue#Complexity_of_finding_square_roots) implementation of Proof of Work algorithm.\
+#### 2. I've chosen the [Quadratic Residue Modulo](https://en.wikipedia.org/wiki/Quadratic_residue#Complexity_of_finding_square_roots) implementation of Proof of Work algorithm.
 Simply describing this implementation could be separated by stages:
 1. Client: Sends the request for the challenge to server.
 2. Server: Receives request for challenge.
