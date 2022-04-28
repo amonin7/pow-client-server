@@ -12,7 +12,7 @@ import (
 func GeneratePrime() int {
 	f, err := os.OpenFile("internal/pkg/tools/generator/primes.txt", os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		log.Fatalf("open file error: %v", err)
+		log.Fatalf("failled to open file - %v", err)
 		return 1_000_000_007
 	}
 	defer func(f *os.File) {
@@ -30,7 +30,7 @@ func GeneratePrime() int {
 			primeStr := sc.Text() // GET the line string
 			prime, err := strconv.Atoi(primeStr)
 			if err != nil {
-				log.Fatalf("failed to parse int: %v", err)
+				log.Fatalf("failed to parse integer from incoming prime - %v", err)
 				return 1_000_000_007
 			} else {
 				return prime
@@ -40,7 +40,7 @@ func GeneratePrime() int {
 		}
 	}
 	if err := sc.Err(); err != nil {
-		log.Fatalf("scan file error: %v", err)
+		log.Fatalf("the error occurred during scanning errer %v", err)
 		return 1_000_000_007
 	}
 	return 1_000_000_007
